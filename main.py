@@ -11,7 +11,7 @@ import traceback
 PROJECT_ID = "67f4f5e00020850f31e6"
 API_KEY = "standard_06b52af3aaa585eb01cda0b5378eadf69d59cfacd0222a5e3d18a988fb605d59f881df7e4c14f4efffd42414bc01ad6e8b966cdf9d954c2ac3b5704d9eeaf6cee34b2bbf39eca83b2a6df4ce5d0d68de19998f42c0175e3d951fe66c72dd6141731f6f2885062258499f3e7b94ad4bd01f0272824b3d9b810907fd25daac179c"
 BUCKET_ID = "6807c93d00133c40f257"
-CHUNK_FILES = ["chunk_1.csv", "chunk_2.csv", "chunk_3.csv", "chunk_4.csv", "chunk_5.csv", "chunk_6.csv"]
+CHUNK_FILES = ["6807e02f000be5a64b1e", "6807dd7000090ac0ed94", "6807ddba00012e228853", "6807e04f000eb187d7d7", "6807e0750014f993886d", "6807de66003b1af04ae6"]
 
 # Initialize Appwrite client
 client = Client()
