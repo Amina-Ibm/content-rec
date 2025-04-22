@@ -40,7 +40,7 @@ def download_and_merge_chunks(chunk_files):
         
     return pd.concat(dataframes, ignore_index=True)
 
-def recommend_books(book_name, book_df, book_cosine_sim, top_n=5):
+def recommend_books(book_name, book_df, book_cosine_sim, top_n=10):
     # Make sure we're working with dataframes and series properly
     if not isinstance(book_df, pd.DataFrame):
         raise TypeError("book_df must be a pandas DataFrame")
