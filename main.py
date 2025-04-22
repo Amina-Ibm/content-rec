@@ -94,41 +94,38 @@ def recommend_books(book_name, book_df, book_cosine_sim, top_n=5):
         return {"error": error_msg}
 
 # Main cloud function entry point
-def main(req, res):
+def main(req):
     try:
-        # Parse the request payload
         data = json.loads(req.payload)
         book_name = data.get('book_title', '')
 
         if not book_name:
-            return res.json({"success": False, "message": "Book title is required"}, 400)
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"success": False, "message": "Book title is required"})
+            }
 
         # Merge all book list chunks
         book_list_df = download_and_merge_chunks(CHUNK_FILES)
-        
-        # Load precomputed cosine similarity matrix from local file
-        try:
-            # Assuming feature_matrix.npz is in the same directory as the function
-            book_cosine_sim = load_npz("feature_matrix.npz")
-            # Print matrix info for debugging
-            print(f"Matrix type: {type(book_cosine_sim)}")
-            print(f"Matrix shape: {book_cosine_sim.shape}")
-        except Exception as e:
-            stack_trace = traceback.format_exc()
-            return res.json({"success": False, "message": f"Error loading feature matrix: {str(e)}\n{stack_trace}"}, 500)
+        book_names = pd.Series(book_list_df["Name"])
 
-        recommendations = recommend_books(book_name, book_list_df, book_cosine_sim)
-        
-        # Check if recommendations contains an error
-        if isinstance(recommendations, dict) and "error" in recommendations:
-            return res.json({"success": False, "message": recommendations["error"]}, 404)
+        # Load precomputed cosine similarity matrix
+        book_cosine_sim = load_npz("feature_matrix.npz")
 
-        return res.json({
-            "success": True,
-            "book": book_name,
-            "recommendations": recommendations
-        })
+        recommendations = recommend_books(book_name, book_names, book_cosine_sim)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "success": True,
+                "book": book_name,
+                "recommendations": recommendations
+            })
+        }
 
     except Exception as e:
-        stack_trace = traceback.format_exc()
-        return res.json({"success": False, "message": f"{str(e)}\n{stack_trace}"}, 500)
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"success": False, "message": str(e)})
+        }
+
