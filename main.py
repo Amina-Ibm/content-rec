@@ -112,6 +112,10 @@ def main(context):
         book_list_df = download_and_merge_chunks(CHUNK_FILES)
         context.log("Chunk files loaded.")
 
+        context.log("Current working directory: " + os.getcwd())
+        context.log("Files in directory: " + str(os.listdir()))
+
+
         context.log("Loading similarity matrix...")
         book_cosine_sim = load_npz("feature_matrix.npz")
         context.log("Cosine similarity matrix loaded.")
