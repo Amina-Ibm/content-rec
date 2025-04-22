@@ -5,6 +5,7 @@ import pandas as pd
 from scipy.sparse import load_npz
 from appwrite.client import Client
 from appwrite.services.storage import Storage
+import traceback
 
 # Appwrite configuration
 PROJECT_ID = "67f4f5e00020850f31e6"
@@ -33,21 +34,69 @@ def download_and_merge_chunks(chunk_files):
             os.remove(chunk)  # Clean up after merging
         except Exception as e:
             print(f"Error downloading {chunk}: {e}")
+    
+    if not dataframes:
+        raise Exception("Failed to load any data chunks")
+        
     return pd.concat(dataframes, ignore_index=True)
 
-def recommend_books(book_name, book_names, book_cosine_sim, top_n=5):
-    if book_name.lower() not in book_names.str.lower().values:
+def recommend_books(book_name, book_df, book_cosine_sim, top_n=5):
+    # Make sure we're working with dataframes and series properly
+    if not isinstance(book_df, pd.DataFrame):
+        raise TypeError("book_df must be a pandas DataFrame")
+    
+    if "Name" not in book_df.columns:
+        raise ValueError("book_df must contain a 'Name' column")
+    
+    # Get book names as a Series
+    book_names = book_df["Name"]
+    
+    # Convert input book name to lowercase
+    book_name_lower = book_name.lower()
+    
+    # Create mask for matching books (case-insensitive)
+    matching_mask = book_names.str.lower() == book_name_lower
+    
+    # Check if book exists in dataset
+    if not matching_mask.any():
         return {"error": "Book not found in dataset!"}
     
-    input_idx = book_names.str.lower()[book_names.str.lower() == book_name.lower()].index[0]
-    sim_scores = book_cosine_sim[input_idx].toarray().flatten()
-    top_indices = np.argsort(sim_scores)[::-1][1:top_n+1]
+    # Find the index of the book
+    input_idx = matching_mask.idxmax()  # Get first matching index
     
-    return book_names.iloc[top_indices].tolist()
+    if input_idx is None or np.isnan(input_idx):
+        return {"error": "Book index could not be determined"}
+    
+    # Convert to integer to ensure proper indexing
+    input_idx = int(input_idx)
+    
+    # Get similarity scores
+    try:
+        # Handle both sparse and dense matrices
+        if hasattr(book_cosine_sim, 'toarray'):
+            row = book_cosine_sim[input_idx]
+            if hasattr(row, 'toarray'):
+                sim_scores = row.toarray().flatten()
+            else:
+                sim_scores = np.array(row).flatten()
+        else:
+            sim_scores = np.array(book_cosine_sim[input_idx]).flatten()
+        
+        # Get top similar books excluding the input book
+        top_indices = np.argsort(sim_scores)[::-1][1:top_n+1]
+        top_indices = [int(i) for i in top_indices]  # Ensure integer indices
+        
+        return book_names.iloc[top_indices].tolist()
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        error_msg = f"Error calculating recommendations: {str(e)}\n{stack_trace}"
+        print(error_msg)
+        return {"error": error_msg}
 
 # Main cloud function entry point
 def main(req, res):
     try:
+        # Parse the request payload
         data = json.loads(req.payload)
         book_name = data.get('book_title', '')
 
@@ -56,12 +105,23 @@ def main(req, res):
 
         # Merge all book list chunks
         book_list_df = download_and_merge_chunks(CHUNK_FILES)
-        book_names = pd.Series(book_list_df["Name"])
+        
+        # Load precomputed cosine similarity matrix from local file
+        try:
+            # Assuming feature_matrix.npz is in the same directory as the function
+            book_cosine_sim = load_npz("feature_matrix.npz")
+            # Print matrix info for debugging
+            print(f"Matrix type: {type(book_cosine_sim)}")
+            print(f"Matrix shape: {book_cosine_sim.shape}")
+        except Exception as e:
+            stack_trace = traceback.format_exc()
+            return res.json({"success": False, "message": f"Error loading feature matrix: {str(e)}\n{stack_trace}"}, 500)
 
-        # Load precomputed cosine similarity matrix
-        book_cosine_sim = load_npz("feature_matrix.npz")
-
-        recommendations = recommend_books(book_name, book_names, book_cosine_sim)
+        recommendations = recommend_books(book_name, book_list_df, book_cosine_sim)
+        
+        # Check if recommendations contains an error
+        if isinstance(recommendations, dict) and "error" in recommendations:
+            return res.json({"success": False, "message": recommendations["error"]}, 404)
 
         return res.json({
             "success": True,
@@ -70,4 +130,5 @@ def main(req, res):
         })
 
     except Exception as e:
-        return res.json({"success": False, "message": str(e)}, 500)
+        stack_trace = traceback.format_exc()
+        return res.json({"success": False, "message": f"{str(e)}\n{stack_trace}"}, 500)
