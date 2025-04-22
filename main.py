@@ -94,13 +94,13 @@ def recommend_books(book_name, book_df, book_cosine_sim, top_n=5):
         return {"error": error_msg}
 
 # Main cloud function entry point
-def main(req):
+def main(context):
     try:
-        print("Parsing payload...")
-        data = json.loads(req.payload)
+        context.log("Parsing payload...")
+        data = json.loads(context.req.body_raw)
 
         book_name = data.get('book_title', '')
-        print(f"Book title received: {book_name}")
+        context.log(f"Book title received: {book_name}")
 
         if not book_name:
             return {
@@ -108,17 +108,17 @@ def main(req):
                 "body": json.dumps({"success": False, "message": "Book title is required"})
             }
 
-        print("Downloading and merging chunks...")
+        context.log("Downloading and merging chunks...")
         book_list_df = download_and_merge_chunks(CHUNK_FILES)
-        print("Chunk files loaded.")
+        context.log("Chunk files loaded.")
 
-        print("Loading similarity matrix...")
+        context.log("Loading similarity matrix...")
         book_cosine_sim = load_npz("feature_matrix.npz")
-        print("Cosine similarity matrix loaded.")
+        context.log("Cosine similarity matrix loaded.")
 
-        print("Generating recommendations...")
+        context.log("Generating recommendations...")
         recommendations = recommend_books(book_name, book_list_df, book_cosine_sim)
-        print(f"Recommendations: {recommendations}")
+        context.log(f"Recommendations: {recommendations}")
 
         return {
             "statusCode": 200,
@@ -130,10 +130,9 @@ def main(req):
         }
 
     except Exception as e:
-        error_msg = f"Internal error: {str(e)}"
-        print(error_msg)
+        context.error(f"Internal error: {str(e)}")
         return {
             "statusCode": 500,
-            "body": json.dumps({"success": False, "message": error_msg})
+            "body": json.dumps({"success": False, "message": str(e)})
         }
 
