@@ -96,8 +96,11 @@ def recommend_books(book_name, book_df, book_cosine_sim, top_n=5):
 # Main cloud function entry point
 def main(req):
     try:
+        print("Parsing payload...")
         data = json.loads(req.payload)
+
         book_name = data.get('book_title', '')
+        print(f"Book title received: {book_name}")
 
         if not book_name:
             return {
@@ -105,14 +108,17 @@ def main(req):
                 "body": json.dumps({"success": False, "message": "Book title is required"})
             }
 
-        # Merge all book list chunks
+        print("Downloading and merging chunks...")
         book_list_df = download_and_merge_chunks(CHUNK_FILES)
-        book_names = pd.Series(book_list_df["Name"])
+        print("Chunk files loaded.")
 
-        # Load precomputed cosine similarity matrix
+        print("Loading similarity matrix...")
         book_cosine_sim = load_npz("feature_matrix.npz")
+        print("Cosine similarity matrix loaded.")
 
-        recommendations = recommend_books(book_name, book_names, book_cosine_sim)
+        print("Generating recommendations...")
+        recommendations = recommend_books(book_name, book_list_df, book_cosine_sim)
+        print(f"Recommendations: {recommendations}")
 
         return {
             "statusCode": 200,
@@ -124,8 +130,10 @@ def main(req):
         }
 
     except Exception as e:
+        error_msg = f"Internal error: {str(e)}"
+        print(error_msg)
         return {
             "statusCode": 500,
-            "body": json.dumps({"success": False, "message": str(e)})
+            "body": json.dumps({"success": False, "message": error_msg})
         }
 
