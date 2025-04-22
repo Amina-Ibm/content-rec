@@ -117,7 +117,7 @@ def main(context):
 
 
         context.log("Loading similarity matrix...")
-        book_cosine_sim = load_npz("feature_matrix.npz")
+        book_cosine_sim = load_npz("function/feature_matrix.npz")
         context.log("Cosine similarity matrix loaded.")
 
         context.log("Generating recommendations...")
